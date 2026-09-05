@@ -115,12 +115,12 @@ class BmolaSensor(SensorEntity):
         """Initialize the sensor."""
         self._hub = hub
         self.entity_description = description
-        self._attr_name = f"Bmola {description.name}"
+        self._attr_name = f"{description.name}"
         self._attr_unique_id = f"{hub.device_id}_{description.key}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, hub.device_id)},
-            name="Bmola Luftreiniger",
-            manufacturer="Bmola / SanNcco",
+            name="B-Mola Luftreiniger",
+            manufacturer="B-Mola / SanNcco",
             model=hub.product_uid,
         )
         self._remove_callback = None
