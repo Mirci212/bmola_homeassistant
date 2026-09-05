@@ -6,6 +6,6 @@
   "dependencies": [],
   "codeowners": [],
   "requirements": ["websockets>=11.0"],
-  "version": "1.1.0",
+  "version": "0.1.0",
   "iot_class": "cloud_push"
 }
