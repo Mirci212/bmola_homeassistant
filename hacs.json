@@ -1,5 +1,4 @@
 {
   "name": "B-Mola Air Purifier Integration",
-  "render_readme": true,
-  "filename": "custom_components/bmola_homeassistant"
+  "render_readme": true
 }
