@@ -1,0 +1,36 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Bmola / SanNcco Luftreiniger",
+        "description": "Gib deine Zugangsdaten und die Geräte-ID deines Luftreinigers ein:",
+        "data": {
+          "user_name": "Benutzername",
+          "device_id": "Geräte-ID",
+          "password": "Passwort (optional)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zum Server fehlgeschlagen",
+      "invalid_auth": "Ungültige Authentifizierung",
+      "unknown": "Unerwarteter Fehler aufgetreten"
+    },
+    "abort": {
+      "already_configured": "Dieses Gerät ist bereits konfiguriert."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Bmola Einstellungen anpassen",
+        "description": "Passe die Zugangsdaten oder Geräte-ID an.",
+        "data": {
+          "user_name": "Benutzername",
+          "device_id": "Geräte-ID",
+          "password": "Passwort (optional)"
+        }
+      }
+    }
+  }
+}

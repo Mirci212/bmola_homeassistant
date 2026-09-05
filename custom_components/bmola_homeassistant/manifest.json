@@ -1,0 +1,11 @@
+{
+  "domain": "bmola_homeassistant",
+  "name": "Bmola / SanNcco Luftreiniger",
+  "config_flow": true,
+  "documentation": "https://github.com/",
+  "dependencies": [],
+  "codeowners": [],
+  "requirements": ["websockets>=11.0"],
+  "version": "1.1.0",
+  "iot_class": "cloud_push"
+}
