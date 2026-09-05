@@ -20,22 +20,18 @@ SPEED_RANGE = (1, 11)
 
 PRESET_MANUAL = "Manual"
 PRESET_ECO = "Eco"
-PRESET_AUTO = "Auto"
-PRESET_MODES = [PRESET_AUTO, PRESET_MANUAL, PRESET_ECO]
+PRESET_MODES = [PRESET_MANUAL, PRESET_ECO]
 
 MODE_TO_PRESET: dict[Any, str] = {
     0: PRESET_MANUAL,
     "0": PRESET_MANUAL,
     1: PRESET_ECO,
     "1": PRESET_ECO,
-    2: PRESET_AUTO,
-    "2": PRESET_AUTO,
 }
 
 PRESET_TO_MODE: dict[str, int] = {
     PRESET_MANUAL: 0,
     PRESET_ECO: 1,
-    PRESET_AUTO: 2,
 }
 
 
@@ -115,7 +111,7 @@ class BmolaFan(FanEntity):
 
     @property
     def preset_mode(self) -> str | None:
-        """Return the current preset mode (Manual, Eco, Auto)."""
+        """Return the current preset mode (Manual, Eco)."""
         val = self._hub.states.get(97)
         if val is None:
             return None
@@ -149,7 +145,7 @@ class BmolaFan(FanEntity):
         await self._hub.send_command(98, 2, str(speed))
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
-        """Set preset mode (Manual=0, Eco=1, Auto=2)."""
+        """Set preset mode (Manual=0, Eco=1)."""
         if preset_mode in PRESET_TO_MODE:
             mode_val = PRESET_TO_MODE[preset_mode]
             await self._hub.send_command(97, 4, mode_val)

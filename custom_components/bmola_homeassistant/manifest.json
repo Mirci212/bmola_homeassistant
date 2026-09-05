@@ -2,7 +2,7 @@
   "domain": "bmola_homeassistant",
   "name": "Bmola / SanNcco Luftreiniger",
   "config_flow": true,
-  "documentation": "https://github.com/",
+  "documentation": "https://github.com/Mirci212/bmola_homeassistant",
   "dependencies": [],
   "codeowners": [],
   "requirements": ["websockets>=11.0"],
