@@ -79,7 +79,7 @@ SENSOR_DESCRIPTIONS: tuple[BmolaSensorEntityDescription, ...] = (
     ),
     BmolaSensorEntityDescription(
         key="filter_remaining",
-        name="Filter Restlaufzeit",
+        name="Filter Gesamtzeit",
         native_unit_of_measurement=UnitOfTime.HOURS,
         device_class=SensorDeviceClass.DURATION,
         state_class=SensorStateClass.MEASUREMENT,
