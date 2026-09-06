@@ -274,8 +274,17 @@ class BmolaHub:
                     self.user_name,
                     self.device_id,
                 )
+
+                # SSL-Kontext vorab im Executor erstellen, um den blockierenden 
+                # load_default_certs Aufruf im Event-Loop zu verhindern (Python 3.14 Fix)
+                import ssl
+                ssl_context = await self.hass.async_add_executor_job(
+                    ssl.create_default_context
+                )
+
                 async with websockets.connect(
                     WS_URL,
+                    ssl=ssl_context,
                     open_timeout=15,
                     close_timeout=5,
                     ping_interval=20,
