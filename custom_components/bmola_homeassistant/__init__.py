@@ -14,7 +14,6 @@ from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
 
-
 DOMAIN = "bmola_homeassistant"
 WS_URL = "wss://app.iotstars.cn/con/websocket"
 PLATFORMS: list[Platform] = [
@@ -77,7 +76,6 @@ class BmolaHub:
         """Initialize the Bmola hub."""
         self.hass = hass
         self.entry = entry
-        self._pending_command: tuple[Any, Any, Any] | None = None
         self.device_id = str(device_id)
         self.user_name = str(user_name)
         self.password = str(password)
@@ -91,8 +89,6 @@ class BmolaHub:
 
         self._running = False
         self._task: asyncio.Task | None = None
-        self._ping_task: asyncio.Task | None = None
-        self._sync_task: asyncio.Task | None = None
         self._connected_event = asyncio.Event()
 
     def register_callback(self, callback: Callable[[], None]) -> Callable[[], None]:
@@ -129,8 +125,6 @@ class BmolaHub:
         self.connected = False
         self._connected_event.clear()
 
-        self._stop_background_tasks()
-
         if self.ws:
             try:
                 await self.ws.close()
@@ -147,13 +141,6 @@ class BmolaHub:
 
         self._notify_callbacks()
 
-    def _stop_background_tasks(self) -> None:
-        """Cancel internal ping and sync tasks."""
-        if self._ping_task and not self._ping_task.done():
-            self._ping_task.cancel()
-        if self._sync_task and not self._sync_task.done():
-            self._sync_task.cancel()
-
     async def send_stomp(self, frame_str: str) -> None:
         """Send a STOMP frame terminated with NULL byte."""
         if self.ws:
@@ -163,14 +150,15 @@ class BmolaHub:
                 _LOGGER.error("Fehler beim Senden des STOMP Frames: %s", err)
 
     async def send_command(
-    self, func_id: int | str, data_type: int | str, value: Any
+        self, func_id: int | str, data_type: int | str, value: Any
     ) -> None:
-        """Send command frame to /dev/update with queueing on failure."""
-        # Befehl direkt als ausstehend vormerken
-        self._pending_command = (func_id, data_type, value)
-
+        """Send command frame to /dev/update."""
         if not self.ws or not self.connected:
-            _LOGGER.warning("Nicht verbunden. Befehl wird nach Reconnect automatisch gesendet.")
+            _LOGGER.warning(
+                "Befehl kann nicht gesendet werden: Bmola nicht verbunden (fi=%s, v=%s)",
+                func_id,
+                value,
+            )
             return
 
         self.sub_counter += 1
@@ -185,49 +173,15 @@ class BmolaHub:
             f"id:{sub_id}\n"
             f"destination:/dev/update\n\n"
         )
-        
-        try:
-            await self.send_stomp(frame)
-            # Wenn erfolgreich gesendet, brauchen wir ihn nicht mehr als pending
-            self._pending_command = None
-        except Exception as err:
-            _LOGGER.error("Fehler beim Senden, erzwinge Reconnect: %s", err)
-            if self.ws:
-                await self.ws.close()
-
-    async def request_status_sync(self) -> None:
-        """Trigger device state flush via dev/init."""
-        if self.connected and self.ws:
-            self.sub_counter += 1
-            sub_dev_init = (
-                "SUBSCRIBE\n"
-                f"did:{self.device_id}\n"
-                f"id:sub-{self.sub_counter}\n"
-                "destination:/dev/init\n\n"
-            )
-            await self.send_stomp(sub_dev_init)
-
-    async def _heartbeat_loop(self) -> None:
-        """Keepalive STOMP ping loop."""
-        try:
-            while self.connected and self.ws:
-                await asyncio.sleep(10)
-                if self.ws:
-                    # STOMP Ping ist ein einfaches Linefeed \n
-                    await self.ws.send("\n")
-        except asyncio.CancelledError:
-            pass
-        except Exception as err:
-            _LOGGER.debug("STOMP Heartbeat abgebrochen: %s", err)
-
-    async def _periodic_sync_loop(self) -> None:
-        """Periodically refresh device states in case the device rebooted."""
-        try:
-            while self.connected:
-                await asyncio.sleep(60)
-                await self.request_status_sync()
-        except asyncio.CancelledError:
-            pass
+        _LOGGER.debug(
+            "Sende Steuerbefehl: did=%s, func_id=%s, dt=%s, val=%s (sub_id=%s)",
+            self.device_id,
+            func_id,
+            data_type,
+            value,
+            sub_id,
+        )
+        await self.send_stomp(frame)
 
     async def _read_inbound(self, ws: websockets.WebSocketClientProtocol) -> None:
         """Read and process frames from WebSocket."""
@@ -262,7 +216,6 @@ class BmolaHub:
             self.connected = False
             self.ws = None
             self._connected_event.clear()
-            self._stop_background_tasks()
             self._notify_callbacks()
 
             connected_at: float | None = None
@@ -274,17 +227,8 @@ class BmolaHub:
                     self.user_name,
                     self.device_id,
                 )
-
-                # SSL-Kontext vorab im Executor erstellen, um den blockierenden 
-                # load_default_certs Aufruf im Event-Loop zu verhindern (Python 3.14 Fix)
-                import ssl
-                ssl_context = await self.hass.async_add_executor_job(
-                    ssl.create_default_context
-                )
-
                 async with websockets.connect(
                     WS_URL,
-                    ssl=ssl_context,
                     open_timeout=15,
                     close_timeout=5,
                     ping_interval=20,
@@ -325,11 +269,6 @@ class BmolaHub:
                         "Bmola STOMP WebSocket erfolgreich verbunden und authentifiziert (Gerät %s).",
                         self.device_id,
                     )
-
-                    # Start heartbeat and sync background loops
-                    self._ping_task = asyncio.create_task(self._heartbeat_loop())
-                    self._sync_task = asyncio.create_task(self._periodic_sync_loop())
-
                     self._notify_callbacks()
 
                     # 3. Subscribe to user update channel
@@ -341,15 +280,17 @@ class BmolaHub:
                     )
                     await self.send_stomp(sub_user)
 
-                    # 4. Trigger initial status sync
-                    await self.request_status_sync()
+                    # 4. Subscribe to dev/init to trigger status flush
+                    sub_dev_init = (
+                        "SUBSCRIBE\n"
+                        f"did:{self.device_id}\n"
+                        "id:sub-1\n"
+                        "destination:/dev/init\n\n"
+                    )
+                    await self.send_stomp(sub_dev_init)
 
-                    # Falls während der Trennung ein Befehl geschickt wurde, jetzt nachholen
-                    if self._pending_command:
-                        func_id, data_type, value = self._pending_command
-                        self._pending_command = None
-                        _LOGGER.info("Sende ausstehenden Befehl nach Reconnect: fi=%s, v=%s", func_id, value)
-                        await self.send_command(func_id, data_type, value)
+                    # Wait until inbound task finishes
+                    await inbound_task
 
             except asyncio.CancelledError:
                 break
@@ -359,7 +300,6 @@ class BmolaHub:
                 self.connected = False
                 self.ws = None
                 self._connected_event.clear()
-                self._stop_background_tasks()
                 self._notify_callbacks()
 
             # If connection was stable for >15 seconds, reset backoff
