@@ -181,7 +181,12 @@ class BmolaHub:
             value,
             sub_id,
         )
-        await self.send_stomp(frame)
+        try:
+            await self.send_stomp(frame)
+        except Exception as err:
+            _LOGGER.error("Fehler beim Senden des Befehls, erzwinge Reconnect: %s", err)
+            if self.ws:
+                await self.ws.close()
 
     async def _read_inbound(self, ws: websockets.WebSocketClientProtocol) -> None:
         """Read and process frames from WebSocket."""
