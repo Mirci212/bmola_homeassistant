@@ -14,6 +14,7 @@ from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
 
+
 DOMAIN = "bmola_homeassistant"
 WS_URL = "wss://app.iotstars.cn/con/websocket"
 PLATFORMS: list[Platform] = [
@@ -76,6 +77,7 @@ class BmolaHub:
         """Initialize the Bmola hub."""
         self.hass = hass
         self.entry = entry
+        self._pending_command: tuple[Any, Any, Any] | None = None
         self.device_id = str(device_id)
         self.user_name = str(user_name)
         self.password = str(password)
@@ -161,15 +163,14 @@ class BmolaHub:
                 _LOGGER.error("Fehler beim Senden des STOMP Frames: %s", err)
 
     async def send_command(
-        self, func_id: int | str, data_type: int | str, value: Any
+    self, func_id: int | str, data_type: int | str, value: Any
     ) -> None:
-        """Send command frame to /dev/update."""
+        """Send command frame to /dev/update with queueing on failure."""
+        # Befehl direkt als ausstehend vormerken
+        self._pending_command = (func_id, data_type, value)
+
         if not self.ws or not self.connected:
-            _LOGGER.warning(
-                "Befehl kann nicht gesendet werden: Bmola nicht verbunden (fi=%s, v=%s)",
-                func_id,
-                value,
-            )
+            _LOGGER.warning("Nicht verbunden. Befehl wird nach Reconnect automatisch gesendet.")
             return
 
         self.sub_counter += 1
@@ -184,15 +185,15 @@ class BmolaHub:
             f"id:{sub_id}\n"
             f"destination:/dev/update\n\n"
         )
-        _LOGGER.debug(
-            "Sende Steuerbefehl: did=%s, func_id=%s, dt=%s, val=%s (sub_id=%s)",
-            self.device_id,
-            func_id,
-            data_type,
-            value,
-            sub_id,
-        )
-        await self.send_stomp(frame)
+        
+        try:
+            await self.send_stomp(frame)
+            # Wenn erfolgreich gesendet, brauchen wir ihn nicht mehr als pending
+            self._pending_command = None
+        except Exception as err:
+            _LOGGER.error("Fehler beim Senden, erzwinge Reconnect: %s", err)
+            if self.ws:
+                await self.ws.close()
 
     async def request_status_sync(self) -> None:
         """Trigger device state flush via dev/init."""
@@ -334,8 +335,12 @@ class BmolaHub:
                     # 4. Trigger initial status sync
                     await self.request_status_sync()
 
-                    # Wait until inbound task finishes
-                    await inbound_task
+                    # Falls während der Trennung ein Befehl geschickt wurde, jetzt nachholen
+                    if self._pending_command:
+                        func_id, data_type, value = self._pending_command
+                        self._pending_command = None
+                        _LOGGER.info("Sende ausstehenden Befehl nach Reconnect: fi=%s, v=%s", func_id, value)
+                        await self.send_command(func_id, data_type, value)
 
             except asyncio.CancelledError:
                 break
