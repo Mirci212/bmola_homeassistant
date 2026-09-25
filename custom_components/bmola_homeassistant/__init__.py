@@ -141,13 +141,15 @@ class BmolaHub:
 
         self._notify_callbacks()
 
-    async def send_stomp(self, frame_str: str) -> None:
+    async def send_stomp(self, frame_str: str) -> bool:
         """Send a STOMP frame terminated with NULL byte."""
         if self.ws:
             try:
                 await self.ws.send(frame_str + "\x00")
+                return True
             except Exception as err:
                 _LOGGER.error("Fehler beim Senden des STOMP Frames: %s", err)
+        return False
 
     async def send_command(
         self, func_id: int | str, data_type: int | str, value: Any
@@ -182,7 +184,14 @@ class BmolaHub:
             sub_id,
         )
         try:
-            await self.send_stomp(frame)
+            sent = await self.send_stomp(frame)
+            if sent:
+                try:
+                    state_func_id = int(func_id)
+                except (ValueError, TypeError):
+                    state_func_id = func_id
+                self.states[state_func_id] = value
+                self._notify_callbacks()
         except Exception as err:
             _LOGGER.error("Fehler beim Senden des Befehls, erzwinge Reconnect: %s", err)
             if self.ws:
