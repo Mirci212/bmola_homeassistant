@@ -227,9 +227,11 @@ class BmolaHub:
         retry_delay = 3
         max_retry_delay = 30
         # The cloud endpoint currently serves an incomplete certificate chain.
-        # Use an explicitly unverified TLS context so websockets doesn't replace
-        # it with its default certificate-verifying context.
-        ssl_context = ssl._create_unverified_context()
+        # Build the context explicitly to prevent websockets from creating a
+        # certificate-verifying default context.
+        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
 
         while self._running:
             self.connected = False

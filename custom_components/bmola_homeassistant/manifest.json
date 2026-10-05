@@ -6,7 +6,7 @@
   "dependencies": [],
   "codeowners": [],
   "requirements": ["websockets>=11.0"],
-  "version": "0.1.0",
+  "version": "0.1.1",
   "iot_class": "cloud_push",
   "icon":"https://raw.githubusercontent.com/Mirci212/bmola_homeassistant/main/icon.png"
 }
