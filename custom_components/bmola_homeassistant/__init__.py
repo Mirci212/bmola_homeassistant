@@ -226,10 +226,10 @@ class BmolaHub:
         """Maintain persistent connection with reconnects and exponential backoff."""
         retry_delay = 3
         max_retry_delay = 30
-        # SSL-Kontext ohne strikte Zertifikatsprüfung erstellen
-        ssl_context = ssl.create_default_context()
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
+        # The cloud endpoint currently serves an incomplete certificate chain.
+        # Use an explicitly unverified TLS context so websockets doesn't replace
+        # it with its default certificate-verifying context.
+        ssl_context = ssl._create_unverified_context()
 
         while self._running:
             self.connected = False
