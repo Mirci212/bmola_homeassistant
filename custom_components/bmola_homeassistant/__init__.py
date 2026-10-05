@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import ssl
 from typing import Any, Callable
 
 import websockets
@@ -225,6 +226,10 @@ class BmolaHub:
         """Maintain persistent connection with reconnects and exponential backoff."""
         retry_delay = 3
         max_retry_delay = 30
+        # SSL-Kontext ohne strikte Zertifikatsprüfung erstellen
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
 
         while self._running:
             self.connected = False
@@ -243,6 +248,7 @@ class BmolaHub:
                 )
                 async with websockets.connect(
                     WS_URL,
+                    ssl=ssl_context,
                     open_timeout=15,
                     close_timeout=5,
                     ping_interval=20,
