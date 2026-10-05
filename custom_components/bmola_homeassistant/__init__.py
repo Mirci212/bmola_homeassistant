@@ -16,6 +16,7 @@ from homeassistant.core import HomeAssistant
 _LOGGER = logging.getLogger(__name__)
 
 DOMAIN = "bmola_homeassistant"
+INTEGRATION_VERSION = "0.1.2"
 WS_URL = "wss://app.iotstars.cn/con/websocket"
 PLATFORMS: list[Platform] = [
     Platform.FAN,
@@ -232,6 +233,10 @@ class BmolaHub:
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         ssl_context.check_hostname = False
         ssl_context.verify_mode = ssl.CERT_NONE
+        _LOGGER.info(
+            "Bmola Integration %s geladen; TLS-Zertifikatsprüfung deaktiviert.",
+            INTEGRATION_VERSION,
+        )
 
         while self._running:
             self.connected = False
